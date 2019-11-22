@@ -48,17 +48,17 @@ void zera_janela(){
         }
     }
 }
-double dist_euclidiana(int px,int py,int qx,int qy) {
+long double dist_euclidiana(int px,int py,int qx,int qy) {
     return sqrt(pow(abs(px-qx),2) + pow(abs(py-qy),2));
 }
 
-double gauss(int sigma, int x) {
+long double gauss(int sigma, int x) {
     return 1/(2*M_PI*pow(sigma,2))*exp(-(pow(x,2)/2*pow(sigma,2)));
 }
 
-double calcula_wp(bool iq) {
+long double calcula_wp(bool iq) {
     int p = janela[4][4];
-    double soma = 0;
+    long double soma = 0;
     for(int i=0; i<9; i++){
         for(int j=0; j<9; j++){
             if(i == 4 && j == 4){
