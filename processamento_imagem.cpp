@@ -9,6 +9,7 @@ using namespace std;
 
 int janela[9][9];
 unsigned char *bf; // billateral filtered image
+unsigned char *final; //imagem dps de filtro e equalizaçao
 
 
 void init(void) { 
@@ -22,6 +23,10 @@ void display(void) {
     glClear(GL_COLOR_BUFFER_BIT);
     glRasterPos2i(0, 0);
     glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glRasterPos2i(width, 0);
+    glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, bf);
+    glRasterPos2i(2*width, 0);
+    glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, final);    
 
     glFlush();
 }
@@ -34,13 +39,6 @@ void reshape(int w, int h) {
     glMatrixMode(GL_MODELVIEW);
 }
 
-void keyboard(unsigned char key, int x, int y) {
-    switch (key) {
-        case 27:
-        exit(0);
-    }
-}
-
 void zera_janela(){
     for(int a=0; a<9; a++){
         for(int b=0; b<9; b++){
@@ -48,17 +46,17 @@ void zera_janela(){
         }
     }
 }
-long double dist_euclidiana(int px,int py,int qx,int qy) {
-    return sqrt(pow(abs(px-qx),2) + pow(abs(py-qy),2));
+double dist_euclidiana(int px,int py,int qx,int qy) {
+    return sqrt(pow(px-qx,2) + pow(py-qy,2));
 }
 
-long double gauss(int sigma, int x) {
-    return 1/(2*M_PI*pow(sigma,2))*exp(-(pow(x,2)/2*pow(sigma,2)));
+double gauss(int sigma, double x) {
+    return 1/(2*M_PI*pow(sigma,2))*exp(-1*(pow(x,2)/(2*pow(sigma,2))));
 }
 
-long double calcula_wp(bool iq) {
+double calcula_wp(bool iq) {
     int p = janela[4][4];
-    long double soma = 0;
+    double soma = 0;
     for(int i=0; i<9; i++){
         for(int j=0; j<9; j++){
             if(i == 4 && j == 4){
@@ -66,10 +64,10 @@ long double calcula_wp(bool iq) {
             }
             int q = janela[i][j];
             if(iq == true){
-                soma += gauss(3, dist_euclidiana(4, 4, i, j))*gauss(8, p - q)*q;
+                soma += gauss(3, dist_euclidiana(4, 4, j, 8-i))*gauss(8, (1.0)*(p - q))*(1.0)*q;
             }
             else{
-                soma += gauss(3, dist_euclidiana(4, 4, i, j))*gauss(8, p - q);
+                soma += gauss(3, dist_euclidiana(4, 4, j, 8-i))*gauss(8, (1.0)*(p - q));
             }
         }
     }
@@ -87,6 +85,8 @@ int main(int argc, char **argv) {
     linha = 0;
     coluna = 0;
     cont = 0;
+    double prNivel[256] = {0};
+    int sNivel[256] = {0};
     for(int i = 0; i < 3*width*height; i += 3) {
         matriz_pixels[linha][coluna] = (int)data[i];
         cont += 1;
@@ -118,7 +118,20 @@ int main(int argc, char **argv) {
                 ijanela++;
                 jjanela = 0;
             }
-            int BIp = (int)round(1/calcula_wp(false) * calcula_wp(true));
+            if(calcula_wp(true) == 0){
+
+            }
+            double BI = (1.0/calcula_wp(false)) * calcula_wp(true);
+            // if(calcula_wp(false) == 0){
+            //     for(int i=0; i<9; i++){
+            //         for(int j=0; j<9; j++){
+            //             cout << janela[i][j] << " ";
+            //         }
+            //         cout << endl;
+            //     }
+            //     cout << endl;
+            // }
+            int BIp = (int)round(BI);
             if(BIp < 0){
                 BIp = 0;
             }
@@ -126,29 +139,45 @@ int main(int argc, char **argv) {
                 BIp = 255;
             }
             matriz_bilateral[i][j] = BIp;
+            prNivel[BIp]++;
         }
     }
-
-
-    // bf = (unsigned char *)malloc(header.bmpinfo.imagesize);
-    // bf = data;
+    bf = (unsigned char *)malloc(header.bmpinfo.imagesize);
+    *bf = *data;
     cont = 0;
     for(int i=0; i<height; i++){
         for(int j=0; j<width; j++){
-            data[cont] = (unsigned char)matriz_bilateral[i][j];
-            data[cont+1] = (unsigned char)matriz_bilateral[i][j];
-            data[cont+2] = (unsigned char)matriz_bilateral[i][j];
+            bf[cont] = (unsigned char)matriz_bilateral[i][j];
+            bf[cont+1] = (unsigned char)matriz_bilateral[i][j];
+            bf[cont+2] = (unsigned char)matriz_bilateral[i][j];
             cont +=3;
         }
     }
+
+    for(int i=0; i<256; i++){
+        prNivel[i] = prNivel[i]/(width*height);
+    }
+    for(int i=0; i<=255; i++){
+        double aux = 0;
+        for(int j=0; j<=i; j++){
+            aux += prNivel[j];
+        }
+        aux *= 255;
+        sNivel[i] = (int)round(aux);
+    }
+    final = (unsigned char *)malloc(header.bmpinfo.imagesize);
+    *final = *bf;
+    for(int i=0; i<width*height*3; i++){
+    	final[i] = (unsigned char)sNivel[(int)bf[i]];
+    }
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
-    glutInitWindowSize(width, height);
+    glutInitWindowSize(3*width, height);
     glutInitWindowPosition(100, 100);
     glutCreateWindow(argv[0]);
     init();
     glutReshapeFunc(reshape);
-    glutKeyboardFunc(keyboard);
     glutDisplayFunc(display);
     glutMainLoop();
     return 0;
